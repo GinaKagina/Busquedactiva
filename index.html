@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investigación Conectada: Acción y Evidencia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons para la UI -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandBlue: '#1e3a8a', 
+                        brandAccent: '#10b981', 
+                        brandBg: '#f8fafc', 
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .section-padding { padding-top: 100px; padding-bottom: 60px; }
+        
+        /* --- ESTILOS: ESPIRAL CÍCLICA --- */
+        .circle-container { position: relative; width: 280px; height: 280px; margin: 0 auto; border-radius: 50%; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .quadrant { position: absolute; width: 50%; height: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; transition: all 0.3s ease; opacity: 0.8; }
+        .quadrant:hover, .quadrant.active { opacity: 1; transform: scale(1.05); z-index: 10; }
+        .quadrant-tl { top: 0; left: 0; background-color: #3b82f6; border-bottom: 2px solid white; border-right: 2px solid white; border-top-left-radius: 100%; align-items: flex-end; justify-content: flex-end; padding-bottom: 30px; padding-right: 30px;} 
+        .quadrant-tr { top: 0; right: 0; background-color: #ef4444; border-bottom: 2px solid white; border-left: 2px solid white; border-top-right-radius: 100%; align-items: flex-end; justify-content: flex-start; padding-bottom: 30px; padding-left: 30px;} 
+        .quadrant-br { bottom: 0; right: 0; background-color: #f59e0b; border-top: 2px solid white; border-left: 2px solid white; border-bottom-right-radius: 100%; align-items: flex-start; justify-content: flex-start; padding-top: 30px; padding-left: 30px;} 
+        .quadrant-bl { bottom: 0; left: 0; background-color: #8b5cf6; border-top: 2px solid white; border-right: 2px solid white; border-bottom-left-radius: 100%; align-items: flex-start; justify-content: flex-end; padding-top: 30px; padding-right: 30px;} 
+        .center-circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 130px; height: 130px; background-color: white; border-radius: 50%; z-index: 20; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        /* --- ESTILOS: SIMULADOR BOOLEANO --- */
+        #venn-fills * { transition: all 0.5s ease-in-out; }
+
+        /* --- ESTILOS: FLIP CARDS 3D --- */
+        .flip-card { background-color: transparent; perspective: 1000px; height: 260px; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.8s; transform-style: preserve-3d; }
+        /* Permite rotar al hover o al tener la clase .flipped por JS (para móviles) */
+        .flip-card:hover .flip-card-inner, .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+        .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .flip-card-front { background-color: white; border: 2px solid #e2e8f0; }
+        .flip-card-back { background-color: #1e3a8a; color: white; transform: rotateY(180deg); }
+
+        /* --- ESTILOS: SNOWBALLING TIMELINE --- */
+        .snowball-path { transition: all 0.5s ease; stroke-dasharray: 5,5; animation: dash 10s linear infinite; }
+        .snowball-path.active { stroke: #10b981; stroke-width: 4; stroke-dasharray: 0; animation: none; }
+        @keyframes dash { to { stroke-dashoffset: -100; } }
+        .snowball-node { transition: all 0.3s ease; }
+        .snowball-node.active { transform: scale(1.1); fill: #10b981; }
+        
+        /* Enlaces de Fuentes */
+        .source-link { transition: all 0.2s ease; }
+        .source-link:hover { transform: translateX(5px); color: #1e3a8a; font-weight: 600;}
+    </style>
+</head>
+<body class="bg-brandBg text-gray-800 antialiased" onload="initBooleanSimulator(); resetSnowball(); lucide.createIcons();">
+
+    <!-- MENÚ FLOTANTE (Optimizado y Granular) -->
+    <nav class="fixed w-full z-50 top-0 bg-brandBlue text-white shadow-lg transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center mr-4">
+                    <a href="#inicio" class="font-bold text-xl tracking-wider hover:text-brandAccent transition flex items-center gap-2">
+                        <i data-lucide="microscope" class="w-6 h-6 text-brandAccent"></i>
+                        <span>Inv<span class="text-brandAccent">Conectada</span></span>
+                    </a>
+                </div>
+                
+                <!-- Menú Desktop -->
+                <div class="hidden lg:flex space-x-5 text-sm">
+                    <a href="#inicio" class="nav-link font-medium hover:text-brandAccent transition text-brandAccent">Inicio</a>
+                    <a href="#metodologias" class="nav-link font-medium hover:text-brandAccent transition">Metodologías</a>
+                    <a href="#operadores" class="nav-link font-medium hover:text-brandAccent transition">Operadores</a>
+                    <a href="#sintaxis" class="nav-link font-medium hover:text-brandAccent transition">Sintaxis</a>
+                    <a href="#filtros" class="nav-link font-medium hover:text-brandAccent transition">Filtros</a>
+                    <a href="#estrategias" class="nav-link font-medium hover:text-brandAccent transition">Estrategias</a>
+                    <a href="#video" class="nav-link font-medium hover:text-brandAccent transition">Video</a>
+                    <a href="#fuentes" class="nav-link font-medium hover:text-brandAccent transition">Fuentes</a>
+                </div>
+
+                <!-- Botón Menú Móvil -->
+                <div class="lg:hidden flex items-center">
+                    <button id="mobile-menu-btn" class="outline-none hover:text-brandAccent">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menú Móvil Desplegable -->
+        <div id="mobile-menu" class="hidden lg:hidden bg-blue-900 border-t border-blue-800">
+            <ul class="flex flex-col px-4 py-2 space-y-2 text-sm">
+                <li><a href="#inicio" class="mobile-nav-link block py-2 hover:text-brandAccent">Inicio</a></li>
+                <li><a href="#metodologias" class="mobile-nav-link block py-2 hover:text-brandAccent">Metodologías Activas</a></li>
+                <li><a href="#operadores" class="mobile-nav-link block py-2 hover:text-brandAccent">Operadores Booleanos</a></li>
+                <li><a href="#sintaxis" class="mobile-nav-link block py-2 hover:text-brandAccent">Modificadores de Sintaxis</a></li>
+                <li><a href="#filtros" class="mobile-nav-link block py-2 hover:text-brandAccent">Filtros y Limitadores</a></li>
+                <li><a href="#estrategias" class="mobile-nav-link block py-2 hover:text-brandAccent">Estrategias y Tesauros</a></li>
+                <li><a href="#video" class="mobile-nav-link block py-2 hover:text-brandAccent">Material Audiovisual</a></li>
+                <li><a href="#fuentes" class="mobile-nav-link block py-2 hover:text-brandAccent">Fuentes Confiables</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 1. INICIO (Con indicador de Scroll) -->
+    <section id="inicio" class="relative min-h-screen section-padding flex flex-col items-center justify-center bg-white scroll-mt-16 overflow-hidden">
+        <!-- Decoración de fondo suave -->
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+        <div class="relative z-10 max-w-4xl mx-auto px-6 text-center">
+            <span class="text-brandAccent font-bold tracking-widest uppercase text-sm mb-4 block flex items-center justify-center gap-2">
+                <i data-lucide="book-open" class="w-4 h-4"></i> Introducción
+            </span>
+            <h1 class="text-5xl md:text-6xl lg:text-7xl font-extrabold text-brandBlue mb-6 leading-tight tracking-tight">
+                El Poder de la <span class="text-brandAccent">Acción</span> y la <span class="text-brandAccent">Evidencia</span>
+            </h1>
+            <p class="text-lg md:text-xl text-gray-600 mb-10 leading-relaxed max-w-3xl mx-auto">
+                En la era de la sobreinformación, investigar es un acto dinámico que transforma realidades. Este espacio te guiará en el dominio de las metodologías activas y la búsqueda avanzada de información.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#metodologias" class="flex items-center justify-center gap-2 bg-brandAccent text-white px-8 py-4 rounded-full font-bold shadow-lg hover:bg-emerald-600 transition transform hover:-translate-y-1">
+                    Explorar Metodologías <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Scroll Down Indicator -->
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center animate-bounce-slow text-gray-400">
+            <span class="text-xs font-semibold mb-2 uppercase tracking-widest">Desplázate</span>
+            <i data-lucide="chevron-down" class="w-6 h-6"></i>
+        </div>
+    </section>
+
+    <!-- 2. METODOLOGÍAS -->
+    <section id="metodologias" class="min-h-screen section-padding bg-brandBg scroll-mt-16 border-t border-gray-100">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="mb-12 text-center">
+                <h2 class="text-3xl md:text-4xl font-bold text-brandBlue mb-4 flex items-center justify-center gap-3">
+                    <i data-lucide="users" class="w-8 h-8 text-brandAccent"></i> Metodologías Activas
+                </h2>
+                <p class="text-lg text-gray-600">Investigar desde adentro: Los sujetos dejan de ser pasivos para convertirse en co-investigadores.</p>
+                
+                <!-- NUEVO: Badges de Características -->
+                <div class="flex flex-wrap justify-center gap-3 mt-6">
+                    <span class="bg-blue-100 text-brandBlue px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> Co-construcción del conocimiento</span>
+                    <span class="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"><i data-lucide="link" class="w-4 h-4"></i> Vínculo teoría-práctica (Praxis)</span>
+                    <span class="bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i> Enfoque transformador</span>
+                </div>
+            </div>
+
+            <!-- NUEVO: Modelos Comparativos -->
+            <div class="grid md:grid-cols-3 gap-6 mb-16">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition group">
+                    <div class="w-10 h-10 bg-blue-50 text-brandBlue rounded-lg flex items-center justify-center mb-4 group-hover:bg-brandBlue group-hover:text-white transition">
+                        <i data-lucide="network" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="font-bold text-brandBlue mb-2">IAP</h4>
+                    <p class="text-sm text-gray-600">Investigación-Acción Participativa. La comunidad se involucra activamente en resolver problemas reales.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition group">
+                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-emerald-500 group-hover:text-white transition">
+                        <i data-lucide="school" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="font-bold text-brandBlue mb-2">En el Aula</h4>
+                    <p class="text-sm text-gray-600">El docente actúa como investigador para evaluar y mejorar su propia práctica educativa de forma reflexiva.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition group">
+                    <div class="w-10 h-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-500 group-hover:text-white transition">
+                        <i data-lucide="heart-handshake" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="font-bold text-brandBlue mb-2">Aprendizaje-Servicio (ApS)</h4>
+                    <p class="text-sm text-gray-600">Une el aprendizaje académico con el servicio comunitario, formando ciudadanos críticos e investigativos.</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">La Investigación-Acción Participativa (IAP)</h3>
+                    <p class="mb-4 text-gray-600 leading-relaxed">Es la teoría puesta al servicio de la práctica (praxis) para resolver problemas reales y generar transformaciones tangibles. A diferencia de la investigación tradicional, aquí el investigador se involucra activamente en la comunidad.</p>
+                    <div class="bg-blue-50 p-4 border-l-4 border-brandBlue rounded-r-lg mt-6 flex items-start gap-3">
+                        <i data-lucide="lightbulb" class="w-6 h-6 text-brandBlue flex-shrink-0 mt-1"></i>
+                        <p class="text-sm text-brandBlue font-medium leading-tight">Interactúa con el gráfico de la derecha haciendo clic en cada fase para descubrir el proceso cíclico.</p>
+                    </div>
+                </div>
+                <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col items-center justify-center relative">
+                    <div class="circle-container mb-6">
+                        <div class="quadrant quadrant-tl" onclick="updateCycleText('plan')">1. Planificar</div>
+                        <div class="quadrant quadrant-tr" onclick="updateCycleText('act')">2. Actuar</div>
+                        <div class="quadrant quadrant-br" onclick="updateCycleText('obs')">3. Observar</div>
+                        <div class="quadrant quadrant-bl" onclick="updateCycleText('ref')">4. Reflexionar</div>
+                        <div class="center-circle"><i data-lucide="refresh-cw" class="w-10 h-10 text-gray-300"></i></div>
+                    </div>
+                    <div id="cycle-description-box" class="w-full bg-gray-50 p-4 rounded-lg border border-gray-200 text-center min-h-[120px] flex items-center justify-center">
+                        <p id="cycle-text" class="text-gray-600 text-sm">Haz clic en una fase del ciclo arriba para ver su descripción.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. OPERADORES BOOLEANOS -->
+    <section id="operadores" class="pt-24 pb-12 bg-white scroll-mt-16 border-t border-gray-100">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="mb-12 text-center">
+                <h2 class="text-3xl md:text-4xl font-bold text-brandBlue mb-4 flex items-center justify-center gap-3">
+                    <i data-lucide="search" class="w-8 h-8 text-brandAccent"></i> Búsqueda Avanzada
+                </h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">El mapa de la evidencia: Domina la sintaxis lógica y los operadores booleanos para filtrar el ruido documental.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 items-center flex-row-reverse">
+                <div class="bg-brandBg p-8 rounded-2xl shadow-lg border border-gray-100 flex flex-col items-center order-2 md:order-1">
+                    <h3 class="text-lg font-bold text-gray-700 mb-6 w-full text-center border-b pb-2 flex items-center justify-center gap-2">
+                        <i data-lucide="mouse-pointer-click" class="w-5 h-5 text-gray-400"></i> Simulador de Venn
+                    </h3>
+                    <div class="flex justify-center space-x-3 mb-8 w-full">
+                        <button onclick="setBoolean('AND')" id="btn-AND" class="boolean-btn flex-1 py-2 rounded-lg font-bold border-2 text-brandBlue">AND</button>
+                        <button onclick="setBoolean('OR')" id="btn-OR" class="boolean-btn flex-1 py-2 rounded-lg font-bold border-2 text-brandBlue">OR</button>
+                        <button onclick="setBoolean('NOT')" id="btn-NOT" class="boolean-btn flex-1 py-2 rounded-lg font-bold border-2 text-brandBlue">NOT</button>
+                    </div>
+                    <div class="relative w-full max-w-[280px] h-48 flex justify-center mb-6">
+                        <svg viewBox="0 0 300 200" class="w-full h-full overflow-visible">
+                            <defs>
+                                <clipPath id="clip-intersect"><circle cx="185" cy="100" r="70" /></clipPath>
+                                <mask id="mask-not"><rect x="0" y="0" width="300" height="200" fill="white" /><circle cx="185" cy="100" r="70" fill="black" /></mask>
+                            </defs>
+                            <circle cx="115" cy="100" r="70" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                            <circle cx="185" cy="100" r="70" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                            <g id="venn-fills"></g>
+                            <circle cx="115" cy="100" r="70" fill="none" stroke="#94a3b8" stroke-width="2" />
+                            <circle cx="185" cy="100" r="70" fill="none" stroke="#94a3b8" stroke-width="2" />
+                            <text x="85" y="105" text-anchor="middle" font-weight="bold" fill="#334155" class="text-sm">Educación</text>
+                            <text x="215" y="105" text-anchor="middle" font-weight="bold" fill="#334155" class="text-sm">Tecnología</text>
+                        </svg>
+                    </div>
+                    <div id="boolean-desc-box" class="w-full bg-white p-4 rounded-lg border border-gray-200 text-center min-h-[100px] flex flex-col justify-center"></div>
+                </div>
+
+                <div class="order-1 md:order-2">
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">Operadores Fundamentales</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 border-l-4 border-brandBlue bg-gray-50 rounded-r-lg hover:shadow-md transition cursor-pointer" onclick="setBoolean('AND')">
+                            <span class="font-bold text-brandBlue text-xl block mb-1">AND (Intersección)</span>
+                            <p class="text-gray-600 text-sm">Recupera documentos que contengan TODOS los términos. Reduce y enfoca la búsqueda.</p>
+                        </div>
+                        <div class="p-4 border-l-4 border-brandAccent bg-gray-50 rounded-r-lg hover:shadow-md transition cursor-pointer" onclick="setBoolean('OR')">
+                            <span class="font-bold text-brandAccent text-xl block mb-1">OR (Unión)</span>
+                            <p class="text-gray-600 text-sm">Recupera documentos con CUALQUIERA de los términos. Amplía la búsqueda.</p>
+                        </div>
+                        <div class="p-4 border-l-4 border-red-500 bg-gray-50 rounded-r-lg hover:shadow-md transition cursor-pointer" onclick="setBoolean('NOT')">
+                            <span class="font-bold text-red-500 text-xl block mb-1">NOT (Exclusión)</span>
+                            <p class="text-gray-600 text-sm">Excluye documentos que contengan un término específico. Elimina ruido no deseado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. SINTAXIS Y MODIFICADORES (Con Copy Button) -->
+    <section id="sintaxis" class="py-12 bg-white scroll-mt-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="bg-gray-50 p-8 rounded-3xl border border-gray-200">
+                <div class="text-center mb-8">
+                    <h3 class="text-2xl font-bold text-brandBlue mb-2">Modificadores de Sintaxis</h3>
+                    <p class="text-gray-600">Pasa el cursor (o toca) sobre las tarjetas para descubrir cómo afinar tus ecuaciones.</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-6">
+                    
+                    <!-- Tarjeta 1 -->
+                    <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                        <div class="flip-card-inner">
+                            <div class="flip-card-front">
+                                <span class="text-6xl text-brandBlue font-bold mb-4">" "</span>
+                                <h4 class="text-xl font-bold text-gray-800">Frase Exacta</h4>
+                                <div class="mt-4 text-gray-400"><i data-lucide="corner-down-right" class="w-5 h-5"></i></div>
+                            </div>
+                            <div class="flip-card-back flex flex-col justify-center items-center">
+                                <h4 class="text-lg font-bold text-brandAccent mb-2">¿Para qué sirve?</h4>
+                                <p class="text-sm text-blue-100 mb-4 text-center">Fuerza al buscador a encontrar las palabras en el mismo orden.</p>
+                                <div class="bg-blue-900 p-2 rounded text-sm font-mono text-white w-full text-center mb-2">"Inteligencia Artificial"</div>
+                                <!-- Botón Copiar -->
+                                <button onclick="copyToClipboard('\"Inteligencia Artificial\"', this, event)" class="flex items-center gap-1 text-xs bg-white text-brandBlue px-3 py-1 rounded-full hover:bg-gray-200 transition">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> <span>Copiar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 2 -->
+                    <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                        <div class="flip-card-inner">
+                            <div class="flip-card-front">
+                                <span class="text-6xl text-brandBlue font-bold mb-4">*</span>
+                                <h4 class="text-xl font-bold text-gray-800">Truncamiento</h4>
+                                <div class="mt-4 text-gray-400"><i data-lucide="corner-down-right" class="w-5 h-5"></i></div>
+                            </div>
+                            <div class="flip-card-back flex flex-col justify-center items-center">
+                                <h4 class="text-lg font-bold text-brandAccent mb-2">¿Para qué sirve?</h4>
+                                <p class="text-sm text-blue-100 mb-2 text-center">Busca la raíz de una palabra y todas sus posibles terminaciones.</p>
+                                <div class="bg-blue-900 p-2 rounded text-sm font-mono text-white w-full text-center mb-2">educat*</div>
+                                <button onclick="copyToClipboard('educat*', this, event)" class="flex items-center gap-1 text-xs bg-white text-brandBlue px-3 py-1 rounded-full hover:bg-gray-200 transition">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> <span>Copiar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 3 -->
+                    <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                        <div class="flip-card-inner">
+                            <div class="flip-card-front">
+                                <span class="text-6xl text-brandBlue font-bold mb-4">( )</span>
+                                <h4 class="text-xl font-bold text-gray-800">Anidamiento</h4>
+                                <div class="mt-4 text-gray-400"><i data-lucide="corner-down-right" class="w-5 h-5"></i></div>
+                            </div>
+                            <div class="flip-card-back flex flex-col justify-center items-center">
+                                <h4 class="text-lg font-bold text-brandAccent mb-2">¿Para qué sirve?</h4>
+                                <p class="text-sm text-blue-100 mb-2 text-center">Establece el orden matemático en el que se ejecuta la búsqueda.</p>
+                                <div class="bg-blue-900 p-2 rounded text-xs font-mono text-white w-full text-center mb-2">("clima" OR "ambiente") AND "cambio"</div>
+                                <button onclick="copyToClipboard('(\"clima\" OR \"ambiente\") AND \"cambio\"', this, event)" class="flex items-center gap-1 text-xs bg-white text-brandBlue px-3 py-1 rounded-full hover:bg-gray-200 transition">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> <span>Copiar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4.5 FILTROS Y LIMITADORES (NUEVA SECCIÓN) -->
+    <section id="filtros" class="py-12 bg-white scroll-mt-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+                <h3 class="text-2xl font-bold text-brandBlue mb-2 text-center">Filtros y Limitadores de Campo</h3>
+                <p class="text-gray-600 mb-8 text-center">Refina tus resultados para minimizar el ruido documental y encontrar exactamente lo que necesitas.</p>
+                
+                <div class="flex flex-col md:flex-row gap-8">
+                    <!-- Sidebar UI Simulada -->
+                    <div class="w-full md:w-1/3 bg-gray-50 p-6 rounded-xl border border-gray-200">
+                        <h4 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                            <i data-lucide="filter" class="w-5 h-5 text-brandAccent"></i> Refinar Búsqueda
+                        </h4>
+                        
+                        <div class="mb-5">
+                            <span class="font-semibold text-sm text-gray-600 block mb-2">Por Fecha</span>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 cursor-pointer hover:text-brandBlue">
+                                <input type="radio" name="date" class="accent-brandAccent w-4 h-4" onclick="updateFilterText('fecha')"> Últimos 5 años
+                            </label>
+                        </div>
+
+                        <div class="mb-5">
+                            <span class="font-semibold text-sm text-gray-600 block mb-2">Tipo de Documento</span>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 cursor-pointer hover:text-brandBlue">
+                                <input type="radio" name="doc" class="accent-brandAccent w-4 h-4" onclick="updateFilterText('peer')"> Solo Peer-Review
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 cursor-pointer hover:text-brandBlue">
+                                <input type="radio" name="doc" class="accent-brandAccent w-4 h-4" onclick="updateFilterText('review')"> Artículos de Revisión
+                            </label>
+                        </div>
+
+                        <div>
+                            <span class="font-semibold text-sm text-gray-600 block mb-2">Por Campo</span>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 cursor-pointer hover:text-brandBlue">
+                                <input type="radio" name="field" class="accent-brandAccent w-4 h-4" onclick="updateFilterText('campo')"> Buscar solo en Título
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Área de texto dinámico -->
+                    <div class="w-full md:w-2/3 flex items-center justify-center bg-blue-50 p-8 rounded-xl border border-blue-100 transition-all duration-300" id="filter-desc-box">
+                        <div class="text-center">
+                            <i data-lucide="info" class="w-12 h-12 text-blue-300 mx-auto mb-4" id="filter-icon"></i>
+                            <p id="filter-desc" class="text-gray-700 text-lg">Selecciona un filtro a la izquierda para entender cómo te ayuda a enfocar tu investigación.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. ESTRATEGIAS (SNOWBALLING Y TESAUROS) -->
+    <section id="estrategias" class="py-12 bg-white scroll-mt-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="grid md:grid-cols-2 gap-12 items-start">
+                <div>
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+                        <i data-lucide="book" class="w-6 h-6 text-brandAccent"></i> Uso de Tesauros
+                    </h3>
+                    <p class="text-gray-600 mb-6">Los motores de búsqueda a veces no entienden sinónimos. Los tesauros son diccionarios de <strong>"lenguaje controlado"</strong> creados por expertos.</p>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 relative overflow-hidden">
+                        <i data-lucide="quote" class="absolute top-2 right-2 w-16 h-16 text-blue-100 opacity-50"></i>
+                        <h4 class="font-bold text-brandBlue mb-2 relative z-10">¿Cómo funciona?</h4>
+                        <p class="text-sm text-gray-700 mb-3 relative z-10">En lugar de buscar palabras aleatorias (ej: "niños", "infantes"), un tesauro te indica cuál es el término oficial exacto.</p>
+                        <ul class="text-sm text-gray-600 space-y-2 list-disc pl-5 relative z-10">
+                            <li><strong>Tesauro de la UNESCO:</strong> Excelente para educación.</li>
+                            <li><strong>MeSH:</strong> Estándar global para ciencias de la salud.</li>
+                            <li><strong>DeCS:</strong> Descriptores en Ciencias de la Salud (investigación en español/portugués).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 hover:shadow-md transition">
+                    <h3 class="text-2xl font-bold mb-2 text-gray-800 text-center flex items-center justify-center gap-2">
+                        <i data-lucide="git-merge" class="w-6 h-6 text-brandAccent"></i> Rastreo de Citas
+                    </h3>
+                    <p class="text-sm text-gray-500 text-center mb-6">(Snowballing)</p>
+                    <div class="flex justify-center space-x-4 mb-6">
+                        <button onclick="triggerSnowball('backward')" id="btn-back" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full font-medium text-sm transition">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Hacia Atrás
+                        </button>
+                        <button onclick="triggerSnowball('forward')" id="btn-fwd" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full font-medium text-sm transition">
+                            Hacia Adelante <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="w-full flex justify-center mb-4">
+                        <svg width="300" height="120" viewBox="0 0 300 120">
+                            <path id="path-back" d="M 150 60 L 50 60" stroke="#cbd5e1" stroke-width="2" class="snowball-path" fill="none"/>
+                            <path id="path-fwd" d="M 150 60 L 250 60" stroke="#cbd5e1" stroke-width="2" class="snowball-path" fill="none"/>
+                            <circle id="node-back" cx="50" cy="60" r="15" fill="#94a3b8" class="snowball-node"/>
+                            <text x="50" y="95" text-anchor="middle" font-size="10" fill="#64748b">Referencias</text>
+                            <text x="50" y="108" text-anchor="middle" font-size="9" fill="#94a3b8">(Pasado)</text>
+                            <rect x="110" y="30" width="80" height="60" rx="8" fill="#1e3a8a" />
+                            <text x="150" y="55" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Artículo</text>
+                            <text x="150" y="70" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Central</text>
+                            <circle id="node-fwd" cx="250" cy="60" r="15" fill="#94a3b8" class="snowball-node"/>
+                            <text x="250" y="95" text-anchor="middle" font-size="10" fill="#64748b">Citado Por</text>
+                            <text x="250" y="108" text-anchor="middle" font-size="9" fill="#94a3b8">(Futuro)</text>
+                        </svg>
+                    </div>
+                    <div id="snowball-desc" class="bg-gray-50 p-3 rounded text-sm text-center text-gray-600 border border-gray-100 min-h-[60px] flex items-center justify-center">
+                        Haz clic en un botón para ver cómo funciona esta estrategia.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. VIDEO (COVER RESPONSIVO SEGURO - FIX ERROR 153) -->
+    <section id="video" class="pb-24 pt-6 bg-white scroll-mt-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="bg-brandBlue text-white p-8 md:p-12 rounded-[2rem] shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-blue-800 opacity-50 blur-3xl"></div>
+                <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-brandAccent opacity-20 blur-3xl"></div>
+                
+                <div class="relative z-10 text-center mb-8">
+                    <span class="bg-brandAccent text-white px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase mb-4 inline-block">Material Audiovisual</span>
+                    <h3 class="text-2xl md:text-3xl font-bold mb-3">Expande tus conocimientos</h3>
+                    <p class="text-blue-200 max-w-2xl mx-auto">Visualiza este recurso interactivo oficial de YouTube para consolidar lo aprendido.</p>
+                </div>
+                
+                <!-- COVER DEL VIDEO (Soluciona el bloqueo de Iframe en entornos seguros) -->
+                <a href="https://youtu.be/WTgCkZuyg7I" target="_blank" rel="noopener noreferrer" class="relative z-10 block w-full max-w-3xl mx-auto rounded-xl overflow-hidden shadow-2xl aspect-video bg-gray-900 group cursor-pointer border-4 border-blue-900/50 hover:border-brandAccent transition-all duration-300">
+                    <!-- Imagen de fondo miniatura de YouTube (Thumbnail calidad MAX) -->
+                    <img src="https://img.youtube.com/vi/WTgCkZuyg7I/maxresdefault.jpg" alt="Miniatura del Video" class="absolute w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300">
+                    <!-- Efecto de gradiente para texto -->
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <!-- Botón Play Central -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <div class="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-red-500 transition-all duration-300 mb-4">
+                            <i data-lucide="play" class="w-8 h-8 text-white ml-1 fill-current"></i>
+                        </div>
+                        <span class="bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+                            Ver en YouTube <i data-lucide="external-link" class="w-4 h-4"></i>
+                        </span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. FUENTES CONFIABLES (AHORA SON ENLACES INTERACTIVOS) -->
+    <section id="fuentes" class="min-h-screen section-padding bg-gray-50 scroll-mt-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="mb-12 text-center">
+                <h2 class="text-3xl md:text-4xl font-bold text-brandBlue mb-4 flex items-center justify-center gap-3">
+                    <i data-lucide="library" class="w-8 h-8 text-brandAccent"></i> Fuentes Confiables
+                </h2>
+                <p class="text-lg text-gray-600">Sistemas de revisión por pares e indexación académica. Haz clic en las fuentes para visitarlas.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                
+                <!-- Motores Abiertos -->
+                <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
+                    <div class="w-14 h-14 bg-blue-50 text-brandBlue rounded-xl flex items-center justify-center font-bold mb-6">
+                        <i data-lucide="globe" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-gray-800">Motores Abiertos</h3>
+                    <p class="text-sm text-gray-500 mb-6 border-b pb-4">Acceso global y gratuito.</p>
+                    <ul class="text-sm space-y-4 font-medium text-gray-700">
+                        <li><a href="https://scholar.google.com/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Google Académico</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                        <li><a href="https://www.lens.org/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Lens.org</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                        <li><a href="https://app.dimensions.ai/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Dimensions</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                    </ul>
+                </div>
+
+                <!-- Alto Impacto -->
+                <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
+                    <div class="w-14 h-14 bg-blue-50 text-brandBlue rounded-xl flex items-center justify-center font-bold mb-6">
+                        <i data-lucide="award" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-gray-800">Alto Impacto</h3>
+                    <p class="text-sm text-gray-500 mb-6 border-b pb-4">Suscripción Institucional.</p>
+                    <ul class="text-sm space-y-4 font-medium text-gray-700">
+                        <li><a href="https://www.scopus.com/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Scopus (Elsevier)</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                        <li><a href="https://clarivate.com/webofsciencegroup/solutions/web-of-science/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Web of Science</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                    </ul>
+                </div>
+
+                <!-- Regional -->
+                <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
+                    <div class="w-14 h-14 bg-blue-50 text-brandBlue rounded-xl flex items-center justify-center font-bold mb-6">
+                        <i data-lucide="map-pin" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-gray-800">Acceso Regional</h3>
+                    <p class="text-sm text-gray-500 mb-6 border-b pb-4">Revistas de Iberoamérica.</p>
+                    <ul class="text-sm space-y-4 font-medium text-gray-700">
+                        <li><a href="https://scielo.org/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> SciELO</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                        <li><a href="https://www.redalyc.org/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Redalyc</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                        <li><a href="https://dialnet.unirioja.es/" target="_blank" class="source-link flex items-center justify-between"><span class="flex items-center"><span class="text-brandAccent mr-2">•</span> Dialnet</span> <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i></a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER: CRÉDITOS ACADÉMICOS (Nuevo Diseño Formal) -->
+    <footer class="bg-blue-950 text-white pt-16 pb-8 border-t-[6px] border-brandAccent relative overflow-hidden">
+        <!-- Decoración bg -->
+        <i data-lucide="graduation-cap" class="absolute -right-10 -bottom-10 w-64 h-64 text-blue-900 opacity-20 transform -rotate-12"></i>
+        
+        <div class="relative z-10 max-w-5xl mx-auto px-6 flex flex-col items-center justify-center text-center">
+            
+            <div class="mb-6 flex items-center gap-3">
+                <div class="h-[1px] w-12 bg-brandAccent"></div>
+                <span class="text-brandAccent font-bold uppercase tracking-widest text-sm">Proyecto de Investigación Creado Por</span>
+                <div class="h-[1px] w-12 bg-brandAccent"></div>
+            </div>
+            
+            <!-- Firma de Autoras -->
+            <div class="flex flex-col md:flex-row justify-center items-center gap-x-6 gap-y-3 text-xl md:text-2xl font-light tracking-wide mb-8">
+                <span class="hover:text-brandAccent transition cursor-default">Eiwiz Bossio</span>
+                <span class="hidden md:inline text-blue-800/80">•</span>
+                <span class="hover:text-brandAccent transition cursor-default">Maryenis Rodriguez</span>
+                <span class="hidden md:inline text-blue-800/80">•</span>
+                <span class="hover:text-brandAccent transition cursor-default">Georgina Chacon</span>
+            </div>
+            
+            <!-- Etiqueta Académica -->
+            <div class="bg-black/20 backdrop-blur-sm px-8 py-4 rounded-xl border border-blue-800/50 shadow-inner inline-block">
+                <p class="text-blue-100 text-sm md:text-base font-medium flex items-center justify-center gap-2">
+                    <i data-lucide="award" class="w-5 h-5 text-brandAccent"></i>
+                    Estudiantes de Educación Especial en Discapacidad Intelectual y del Desarrollo
+                </p>
+            </div>
+
+            <div class="mt-16 text-blue-500/60 text-xs font-mono border-t border-blue-900/50 pt-6 w-full max-w-2xl">
+                <p>Diseño didáctico basado en el documento "Metodologías activas de la investigación y técnicas activas". © 2024.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- LÓGICA JAVASCRIPT FINAL -->
+    <script>
+        // 1. Navegación e Iconos
+        const btn=document.getElementById('mobile-menu-btn'),menu=document.getElementById('mobile-menu');
+        btn.addEventListener('click',()=>menu.classList.toggle('hidden'));
+        document.querySelectorAll('.mobile-nav-link').forEach(l=>l.addEventListener('click',()=>menu.classList.add('hidden')));
+        window.addEventListener('scroll',()=>{let c='';document.querySelectorAll('section').forEach(s=>{if(pageYOffset>=(s.offsetTop-200))c=s.getAttribute('id');});document.querySelectorAll('.nav-link').forEach(l=>{l.classList.remove('text-brandAccent');if(l.getAttribute('href')===`#${c}`)l.classList.add('text-brandAccent');});});
+
+        // 2. Espiral Cíclica
+        const cycleData={'plan':{title:"1. Planificación",text:"Identificar el problema y diseñar estrategias.",color:"text-blue-600",bg:"bg-blue-50",border:"border-blue-200"},'act':{title:"2. Acción",text:"Ejecutar la estrategia en el contexto real.",color:"text-red-500",bg:"bg-red-50",border:"border-red-200"},'obs':{title:"3. Observación",text:"Recopilar datos sobre los efectos de la acción.",color:"text-amber-600",bg:"bg-amber-50",border:"border-amber-200"},'ref':{title:"4. Reflexión",text:"Analizar para generar conocimiento y reiniciar.",color:"text-purple-600",bg:"bg-purple-50",border:"border-purple-200"}};
+        function updateCycleText(p){const tB=document.getElementById('cycle-description-box'),tC=document.getElementById('cycle-text');document.querySelectorAll('.quadrant').forEach(q=>q.classList.remove('active','ring-4','ring-white'));document.querySelector(`.quadrant[onclick*="${p}"]`)?.classList.add('active','ring-4','ring-white');const d=cycleData[p];tC.style.opacity='0';setTimeout(()=>{tB.className=`w-full p-4 rounded-lg border-2 text-center min-h-[120px] flex flex-col items-center justify-center transition-all duration-300 ${d.bg} ${d.border}`;tC.innerHTML=`<span class="font-bold ${d.color} block mb-1 text-lg">${d.title}</span><span class="text-gray-700 text-sm leading-relaxed">${d.text}</span>`;tC.style.opacity='1';},150);}
+
+        // 3. Simulador Booleano
+        const booleanData={'AND':{query:`<span class="text-gray-800">"Educación"</span> <strong class="text-brandBlue text-lg">AND</strong> <span class="text-gray-800">"Tecnología"</span>`,desc:"Solo artículos con ambas palabras.",svg:`<circle cx="115" cy="100" r="70" fill="#1e3a8a" opacity="0.8" clip-path="url(#clip-intersect)" />`,c:['bg-brandBlue','text-white']},'OR':{query:`<span class="text-gray-800">"Educación"</span> <strong class="text-brandAccent text-lg">OR</strong> <span class="text-gray-800">"Tecnología"</span>`,desc:"Artículos con la primera, la segunda o ambas.",svg:`<circle cx="115" cy="100" r="70" fill="#10b981" opacity="0.6" /><circle cx="185" cy="100" r="70" fill="#10b981" opacity="0.6" />`,c:['bg-brandAccent','text-white','border-brandAccent']},'NOT':{query:`<span class="text-gray-800">"Educación"</span> <strong class="text-red-500 text-lg">NOT</strong> <span class="text-gray-800">"Tecnología"</span>`,desc:"Elimina resultados con la segunda palabra.",svg:`<circle cx="115" cy="100" r="70" fill="#ef4444" opacity="0.8" mask="url(#mask-not)" />`,c:['bg-red-500','text-white','border-red-500']}};
+        function setBoolean(o){document.querySelectorAll('.boolean-btn').forEach(b=>b.className="boolean-btn flex-1 py-2 rounded-lg font-bold border-2 border-gray-300 text-gray-400 hover:border-gray-400 transition-colors duration-200 bg-white");document.getElementById(`btn-${o}`).className=`boolean-btn flex-1 py-2 rounded-lg font-bold border-2 transition-colors duration-200 ${booleanData[o].c.join(' ')}`;document.getElementById('venn-fills').innerHTML=booleanData[o].svg;document.getElementById('boolean-desc-box').innerHTML=`<div class="mb-2 p-2 bg-gray-100 rounded inline-block font-mono text-sm shadow-inner">${booleanData[o].query}</div><p class="text-gray-600 text-sm mt-1">${booleanData[o].desc}</p>`;}
+        function initBooleanSimulator(){setBoolean('AND');}
+
+        // 4. Snowballing
+        function resetSnowball() {
+            document.getElementById('path-back').classList.remove('active'); document.getElementById('path-fwd').classList.remove('active');
+            document.getElementById('node-back').classList.remove('active'); document.getElementById('node-fwd').classList.remove('active');
+            document.getElementById('btn-back').className = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full font-medium text-sm transition";
+            document.getElementById('btn-fwd').className = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full font-medium text-sm transition";
+        }
+        function triggerSnowball(direction) {
+            resetSnowball(); const descBox = document.getElementById('snowball-desc');
+            if(direction === 'backward') {
+                document.getElementById('path-back').classList.add('active'); document.getElementById('node-back').classList.add('active');
+                document.getElementById('btn-back').className = "flex items-center gap-2 px-4 py-2 bg-brandAccent text-white shadow-md rounded-full font-medium text-sm transition";
+                descBox.innerHTML = "<strong>Hacia Atrás:</strong> Revisas la bibliografía (referencias) del Artículo Central para buscar el pasado.";
+            } else {
+                document.getElementById('path-fwd').classList.add('active'); document.getElementById('node-fwd').classList.add('active');
+                document.getElementById('btn-fwd').className = "flex items-center gap-2 px-4 py-2 bg-brandAccent text-white shadow-md rounded-full font-medium text-sm transition";
+                descBox.innerHTML = "<strong>Hacia Adelante:</strong> Buscas qué nuevos autores han citado tu Artículo Central (Futuro).";
+            }
+        }
+
+        // 5. Función de Copiar al Portapapeles (NUEVO)
+        function copyToClipboard(text, buttonElement, event) {
+            event.stopPropagation(); // Evita que la tarjeta gire al hacer clic en el botón
+            
+            // Crear elemento temporal
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            // Efecto visual de éxito
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-green-600"></i> <span class="text-green-600">¡Copiado!</span>`;
+            lucide.createIcons();
+            
+            // Restaurar botón después de 2 segundos
+            setTimeout(() => {
+                buttonElement.innerHTML = originalHTML;
+                lucide.createIcons();
+            }, 2000);
+        }
+
+        // 6. Simulador de Filtros (NUEVO)
+        const filterData = {
+            'fecha': {
+                text: "<strong>Limitar por Fecha (Últimos 5 años):</strong><br><br>Garantiza que la información esté actualizada. Es fundamental en áreas como tecnología, salud o educación donde el conocimiento avanza rápidamente.",
+                icon: "calendar-clock"
+            },
+            'peer': {
+                text: "<strong>Limitar a Peer-Review:</strong><br><br>Filtra solo artículos que han sido evaluados y aprobados por expertos ciegos. Es el sello de oro de la validez científica.",
+                icon: "check-circle"
+            },
+            'review': {
+                text: "<strong>Limitar a Artículos de Revisión (Review):</strong><br><br>Busca documentos que resumen docenas de estudios previos. Excelentes para comprender el \"Estado del Arte\" de un tema.",
+                icon: "book-open-check"
+            },
+            'campo': {
+                text: "<strong>Buscar solo en el Título (TI):</strong><br><br>Si tu término clave aparece en el título, el artículo tratará casi seguro sobre ese tema central. Elimina documentos donde la palabra se menciona solo de pasada.",
+                icon: "type"
+            }
+        };
+
+        function updateFilterText(filterKey) {
+            const descBox = document.getElementById('filter-desc');
+            const iconElement = document.getElementById('filter-icon');
+            const container = document.getElementById('filter-desc-box');
+            
+            container.classList.add('opacity-50');
+            
+            setTimeout(() => {
+                descBox.innerHTML = filterData[filterKey].text;
+                iconElement.setAttribute('data-lucide', filterData[filterKey].icon);
+                lucide.createIcons();
+                
+                container.classList.remove('opacity-50');
+                container.classList.add('bg-blue-100', 'border-blue-300'); 
+            }, 200);
+        }
+    </script>
+</body>
+</html>
